@@ -1,0 +1,215 @@
+---
+title: "Wordpredictor Ngrams"
+author: "Gabriela Ochoa"
+date: "06 aprile 2021"
+output: html_document
+---
+# **Instructions**
+The goal of this exercise is to create a product to highlight the prediction algorithm that you have built and to provide an interface that can be accessed by others. For this project you must submit:
+
+- A Shiny app that takes as input a phrase (multiple words) in a text box input and outputs a prediction of the next word.
+- A slide deck consisting of no more than 5 slides created with R Studio Presenter (https://support.rstudio.com/hc/en-us/articles/200486468-Authoring-R-Presentations) pitching your algorithm and app as if you were presenting to your boss or an investor.
+
+## _Review criteria_
+
+**Data Product**
+
+1. Does the link lead to a Shiny app with a text input box that is running on shinyapps.io?
+2. Does the app load to the point where it can accept input?
+3. When you type a phrase in the input box do you get a prediction of a single word after pressing submit and/or a suitable delay for the model to compute the answer?
+4. Put five phrases drawn from Twitter or news articles in English leaving out the last word. Did it give a prediction for every one?
+
+**Slide Deck**
+
+1. Does the link lead to a 5 slide deck on R Pubs?
+2. Does the slide deck contain a description of the algorithm used to make the prediction?
+3. Does the slide deck describe the app, give instructions, and describe how it functions?
+4. How would you describe the experience of using this app?
+5. Does the app present a novel approach and/or is particularly well done?
+6. Would you hire this person for your own data science startup company?
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+blogs <- file("en_US/en_US.blogs.txt", open="rb")
+blogs <- readLines(blogs, encoding = "UTF-8", skipNul=TRUE)
+
+
+news <- file("en_US/en_US.news.txt", open = "rb") 
+news <- readLines(news, encoding = "UTF-8", skipNul=TRUE)
+
+twitter <- file("en_US/en_US.twitter.txt", open = "rb")
+twitter <- readLines(twitter, encoding = "UTF-8", skipNul=TRUE)
+```
+
+
+```{r, echo=FALSE}
+set.seed(1234)
+subTwitter <- sample(twitter, size = 5000, replace = TRUE)
+subBlogs <- sample(blogs, size = 5000, replace = TRUE)
+subNews <- sample(news, size = 5000, replace = TRUE)
+sample <- c(subTwitter, subBlogs, subNews)
+length(sample)
+writeLines(sample, "sample.txt")
+```
+
+```{r}
+## The TM package is used to clean the corpus text
+library(tm)
+library(tokenizers)
+conn <- file("sample.txt")
+
+corpus <- readLines(conn)
+
+corpus <- Corpus(VectorSource(corpus))
+
+corpus <- tm_map(corpus, content_transformer(function(x) iconv(x, to="UTF-8", sub="byte")))
+
+corpus <- tm_map(corpus, content_transformer(tolower)) 
+
+corpus <- tm_map(corpus, content_transformer(removePunctuation), preserve_intra_word_dashes=TRUE)
+
+## Removing Profanity
+
+#profanityWords = readLines('profane_words.txt')
+
+
+#corpus <- tm_map(corpus,removeWords, profanityWords)
+
+corpus <- tm_map(corpus, content_transformer(removeNumbers))
+
+## Taking out URLs
+removeURL <- function(x) gsub("http[[:alnum:]]*", "", x)
+corpus <- tm_map(corpus, content_transformer(removeURL))
+
+corpus <- tm_map(corpus, removeWords, stopwords("english")) 
+
+corpus <- tm_map(corpus, stripWhitespace) 
+
+## Save the corpus
+saveRDS(corpus, file = "corpus.RData")
+```
+
+```{r}
+corpus <- readRDS("corpus.RData")
+
+## Use the code below to see some lines of the corpus
+##for(i in 1:10){print(finalCorpusMem[[i]]$content)}
+
+## data framing corpus
+corpus <- data.frame(text = get("content", corpus), stringsAsFactors = FALSE)
+head(corpus)
+
+```
+
+```{r}
+unigram <- NGramTokenizer(corpus, Weka_control(min = 1, max = 1,delimiters = " \\r\\n\\t.,;:\"()?!"))
+unigram <- data.frame(table(unigram))
+unigram <- unigram[order(unigram$Freq,decreasing = TRUE),]
+
+names(unigram) <- c("word1", "freq")
+head(unigram)
+
+```
+
+```{r}
+unigram$word1 <- as.character(unigram$word1)
+
+write.csv(unigram[unigram$freq > 1,],"unigram.csv",row.names=F)
+unigram <- read.csv("unigram.csv",stringsAsFactors = F)
+#saveRDS(unigram, file = "unigram1.RData")
+
+```
+
+
+```{r}
+bigram <- NGramTokenizer(corpus, Weka_control(min = 2, max = 2,delimiters = " \\r\\n\\t.,;:\"()?!"))
+bigram <- data.frame(table(bigram))
+bigram <- bigram[order(bigram$Freq,decreasing = TRUE),]
+names(bigram) <- c("words","freq")
+head(bigram)
+bigram$words <- as.character(bigram$words)
+str2 <- strsplit(bigram$words,split=" ")
+bigram <- transform(bigram, 
+                    one = sapply(str2,"[[",1),   
+                    two = sapply(str2,"[[",2))
+bigram <- data.frame(word1 = bigram$one,word2 = bigram$two,freq = bigram$freq,stringsAsFactors=FALSE)
+
+names(bigram)[names(bigram) == 'word1'] <- 'w1'
+names(bigram)[names(bigram) == 'word2'] <- 'w2'
+
+write.csv(bigram[bigram$freq > 1,],"bigram.csv",row.names=F)
+bigram <- read.csv("bigram.csv",stringsAsFactors = F)
+#saveRDS(bigram,"bigram.RData")
+```
+
+```{r}
+trigram <- NGramTokenizer(corpus, Weka_control(min = 3, max = 3,delimiters = " \\r\\n\\t.,;:\"()?!"))
+trigram <- data.frame(table(trigram))
+trigram <- trigram[order(trigram$Freq,decreasing = TRUE),]
+names(trigram) <- c("words","freq")
+head(trigram)
+trigram$words <- as.character(trigram$words)
+str3 <- strsplit(trigram$words,split=" ")
+trigram <- transform(trigram,
+                     one = sapply(str3,"[[",1),
+                     two = sapply(str3,"[[",2),
+                     three = sapply(str3,"[[",3))
+
+trigram <- data.frame(word1 = trigram$one,word2 = trigram$two, 
+                      word3 = trigram$three, freq = trigram$freq,stringsAsFactors=FALSE)
+
+names(trigram)[names(trigram) == 'word1'] <- 'w1'
+names(trigram)[names(trigram) == 'word2'] <- 'w2'
+names(trigram)[names(trigram) == 'word3'] <- 'w3'
+
+write.csv(trigram[trigram$freq > 1,],"trigram.csv",row.names=F)
+trigram <- read.csv("trigram.csv",stringsAsFactors = F)
+#saveRDS(trigram,"trigram.RData")
+```
+
+```{r}
+quadgram <- NGramTokenizer(corpus, Weka_control(min = 4, max = 4,delimiters = " \\r\\n\\t.,;:\"()?!"))
+quadgram <- data.frame(table(quadgram))
+quadgram <- quadgram[order(quadgram$Freq,decreasing = TRUE),]
+
+names(quadgram) <- c("words","freq")
+head(quadgram)
+quadgram$words <- as.character(quadgram$words)
+
+str4 <- strsplit(quadgram$words,split=" ")
+quadgram <- transform(quadgram,
+                      one = sapply(str4,"[[",1),
+                      two = sapply(str4,"[[",2),
+                      three = sapply(str4,"[[",3), 
+                      four = sapply(str4,"[[",4))
+
+quadgram <- data.frame(word1 = quadgram$one,
+                       word2 = quadgram$two, 
+                       word3 = quadgram$three, 
+                       word4 = quadgram$four, 
+                       freq = quadgram$freq, stringsAsFactors=FALSE)
+
+names(quadgram)[names(quadgram) == 'word1'] <- 'w1'
+names(quadgram)[names(quadgram) == 'word2'] <- 'w2'
+names(quadgram)[names(quadgram) == 'word3'] <- 'w3'
+names(quadgram)[names(quadgram) == 'word4'] <- 'w4'
+
+write.csv(quadgram[quadgram$freq > 1,],"quadgram.csv",row.names=F)
+quadgram <- read.csv("quadgram.csv",stringsAsFactors = F)
+#saveRDS(quadgram,"quadgram.RData")
+```
+
+```{r}
+#saveRDS(quadgram,"quadgram.Rds")
+#saveRDS(trigram,"trigram.Rds")
+#saveRDS(bigram,"bigram.Rds")
+#saveRDS(unigram,"unigram1.Rds")
+```
+
+

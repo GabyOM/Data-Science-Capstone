@@ -1,0 +1,51 @@
+---
+title: "Data Science Capstone Word Prediction App"
+author: "Gabriela Ochoa"
+date: "06 aprile 2021"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Main Goal
+
+- Clean Data Corpus and develop a predicting model
+- Develop a _Shiny app_ for a word prediction model
+- launch _Shiny app_
+
+## Description of the Algorithm
+
+The data was clean and create a sample file, special characters like numbers, punctuations, whitespaces, as lowercases, stopwords were removed in the _Data Cleaning_ process.
+
+With the `Tokennaization` function further analysis were performed and some basic EDA (Exploratory Data Analysis).
+
+For modeling we created unigrams, bigrams, trigrams & quadgrams for the modeling purposes.
+
+The predictive model has been developed using n-gram frequency matrices.
+
+## Shyni App
+URL for my Shiny Application (https://gabyom.shinyapps.io/myapp_predict/)
+
+The Shiny App is built for the `Next Word Prediction`.
+
+The main goal is to predict the next best word for the sentence. The best next word will be shown in the display. 
+
+Quadgrams have the highest priority to find a match, if a match is not found, it will proceed to the trigrams, biagrams and last but not least unigrams. 
+
+## Prediction Algorithm 
+Predict the next term of the user input sentence
+1. For prediction of the next word, Quadgram is first used (first three words of Quadgram are the last three words of the user provided sentence).
+2. If no Quadgram is found, back off to Trigram (first two words of Trigram are the last two words of the sentence).
+3. If no Trigram is found, back off to Bigram (first word of Bigram is the last word of the sentence)
+4. If no Bigram is found, back off to the most common word with highest frequency *'the'* is returned.
+    
+## References
+
+- Natural language processing Wikipedia page (https://en.wikipedia.org/wiki/Natural_language_processing)
+- Text mining infrastucture in R (http://ww.jstatsoft.org)
+- CRAN Task View: Natural Language Processing (https://CRAN.R-project.org/view=NaturalLanguageProcessing)
+
+Thank you.
+
